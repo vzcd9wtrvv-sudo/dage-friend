@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07131d">
+<title>大鴿好友模擬器 v2.3 診斷版</title>
+<style>
+:root{--bg:#07131d;--panel:#0d2130;--line:#29495f;--txt:#edf5f9;--muted:#91a8b8;--gold:#e7b84f;--purple:#a681e8;--green:#62ca8e;--red:#e3777e}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:linear-gradient(180deg,#07131d,#050e17);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC",sans-serif}
+body{padding-bottom:max(24px,env(safe-area-inset-bottom))}
+button,input{font:inherit}.wrap{max-width:850px;margin:auto;padding:16px 14px 56px}.hero{text-align:center;padding:24px 0 14px}.logo{font-size:34px;font-weight:1000}.logo em{font-style:normal;color:var(--gold)}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#173c2c;color:#c9f2d8;font-size:11px;font-weight:900;margin-left:6px}.badge.off{background:#3c2b17;color:#f2dec9}
+.card{background:linear-gradient(180deg,rgba(18,42,59,.97),rgba(10,28,42,.98));border:1px solid var(--line);border-radius:20px;padding:17px;margin:12px 0;box-shadow:0 14px 34px rgba(0,0,0,.22)}
+.sub{color:var(--muted);font-size:13px;line-height:1.55}h2{font-size:18px;margin:0 0 12px}
+label{display:block;font-size:14px;color:#c8d8e1;font-weight:800;margin:14px 0 8px}
+input{width:100%;background:#091d2b;border:1px solid #365c73;color:#fff;border-radius:14px;padding:14px 15px;outline:none}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.choice{background:#0b1f2d;border:1px solid #36596f;color:#f0f6f9;border-radius:16px;padding:13px;text-align:left;cursor:pointer}.choice.active{border-color:var(--gold)}.choice b{display:block;margin-bottom:5px}.choice span{font-size:12px;color:var(--muted)}
+.btn{border:0;border-radius:15px;padding:13px 16px;font-weight:900;cursor:pointer}.primary{width:100%;background:linear-gradient(90deg,var(--gold),#d99a2f);color:#18212a}.ghost{background:#153047;color:#e4eef4;border:1px solid #355a72}.danger{background:#45242b;color:#ffe1e4;border:1px solid #72414a}.hidden{display:none!important}
+.topline{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.stat{background:#081a27;border:1px solid #29485d;border-radius:13px;padding:10px 8px;text-align:center}.stat b{display:block;font-size:20px}.stat span{font-size:11px;color:var(--muted)}.bar{height:6px;background:#06131d;border-radius:999px;overflow:hidden;margin-top:6px}.bar i{display:block;height:100%;background:var(--gold)}
+.eventTitle{font-size:24px;font-weight:1000;line-height:1.3;margin:4px 0 10px}.eventText{line-height:1.75;color:#d0dde4}.opts{display:grid;gap:10px;margin-top:15px}.opt{background:#102a3d;border:1px solid #365a72;color:#f3f7f9;border-radius:15px;padding:14px;text-align:left;font-weight:850;cursor:pointer}.opt:disabled{opacity:.5;cursor:default}
+.chat{margin-top:14px;background:#071722;border:1px solid #28495d;border-radius:14px;padding:12px}.chatLine{margin:8px 0;line-height:1.55;font-size:14px}.name{font-weight:900;color:#e8bd5b;margin-right:6px}.name.doctor{color:#b9a3ff}.name.npc{color:#8dc7df}
+.result{margin-top:14px;padding:15px;border-radius:16px;background:#081a27;border:1px solid #365a72}.result h3{margin:0 0 8px}.deltaRow{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}.delta{font-size:11px;padding:3px 7px;border-radius:999px;background:#0a1b28;border:1px solid #35566b;color:#cfe0ea}.plus{border-color:#35634a;color:#bfe6cb}.minus{border-color:#704148;color:#ffd0d4}
+.log{max-height:520px;overflow:auto}.logitem{padding:12px 0;border-bottom:1px solid rgba(255,255,255,.07);font-size:13px;line-height:1.7}.logitem b{color:var(--gold)}.bio{white-space:pre-wrap;text-align:left;line-height:1.75;background:#091a27;border:1px solid #2c4d62;border-radius:14px;padding:14px;max-height:650px;overflow:auto}
+.center{text-align:center}.rank{font-size:58px;font-weight:1000;color:var(--gold)}
+@media(max-width:640px){.grid2{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.logo{font-size:30px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div class="logo">🕊️ <em>大鴿好友</em>模擬器 <span id="aiBadge" class="badge">AI 人生版</span></div>
+    <div class="sub">AI 主導劇情；加入 JSON 容錯與對話格式修復。</div>
+  </div>
+
+  <section id="setup" class="card">
+    <h2>建立假好友</h2>
+    <label>名字</label><input id="playerName" placeholder="例如：Lv.0 摯友">
+    <label>世界種子</label><input id="seed" value="AI-DAGE-FOREVER">
+    <label>好友風格</label>
+    <div class="grid2">
+      <button class="choice active" data-type="貼心型"><b>🙂 貼心型</b><span>比較容易取得信任。</span></button>
+      <button class="choice" data-type="拱火型"><b>🔥 拱火型</b><span>事件更容易失控。</span></button>
+      <button class="choice" data-type="情報型"><b>🗿 情報型</b><span>更常捲入博士與群友。</span></button>
+      <button class="choice" data-type="雙面型"><b>🎭 雙面型</b><span>兩邊關係都能經營。</span></button>
+    </div>
+    <button id="startBtn" class="btn primary" style="margin-top:16px">開始 AI 人生</button>
+  </section>
+
+  <section id="game" class="hidden">
+    <div class="card">
+      <div class="topline">
+        <div><b id="pname"></b><div class="sub" id="meta"></div></div>
+        <div><span id="dateBadge" class="badge"></span><span id="ageBadge" class="badge"></span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>大鴿目前狀態</h2>
+      <div class="stats">
+        <div class="stat"><b id="mood"></b><span>心情</span><div class="bar"><i id="moodBar"></i></div></div>
+        <div class="stat"><b id="anger"></b><span>怒氣</span><div class="bar"><i id="angerBar"></i></div></div>
+        <div class="stat"><b id="trust"></b><span>信任你</span><div class="bar"><i id="trustBar"></i></div></div>
+        <div class="stat"><b id="suspicion"></b><span>懷疑你</span><div class="bar"><i id="suspicionBar"></i></div></div>
+      </div>
+      <div class="sub" id="statusLine" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card">
+      <div class="sub" id="eventTag"></div>
+      <div id="eventTitle" class="eventTitle"></div>
+      <div id="eventText" class="eventText"></div>
+      <div id="dialogue" class="chat hidden"></div>
+      <div id="options" class="opts"></div>
+      <div id="result" class="result hidden"></div>
+    </div>
+
+    <div class="card">
+      <h2>人生紀錄</h2>
+      <div id="log" class="log"></div>
+    </div>
+
+    <button id="retireBtn" class="btn danger" style="width:100%">提前結束並生成傳記</button>
+  </section>
+
+  <section id="ending" class="card hidden center">
+    <div class="sub">AI 人生總評</div>
+    <div id="rank" class="rank"></div>
+    <h2 id="endingTitle"></h2>
+    <div id="endingSummary" class="sub" style="margin-bottom:14px"></div>
+    <div id="biography" class="bio"></div>
+    <button class="btn primary" onclick="location.reload()" style="margin-top:14px">重新投胎</button>
+  </section>
+</div>
+
+<script>
+function hashString(str){let h=2166136261>>>0;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const $=id=>document.getElementById(id), clamp=v=>Math.max(0,Math.min(100,v));
+let rng=Math.random,chosenType="貼心型",S=null,currentEvent=null,busy=false;
+
+document.querySelectorAll(".choice").forEach(b=>b.onclick=()=>{document.querySelectorAll(".choice").forEach(x=>x.classList.remove("active"));b.classList.add("active");chosenType=b.dataset.type});
+
+const fallbackEvents=[
+ {category:"社群",title:"大鴿突然覺得群友在影射他",description:"一則原本普通的回覆被他反覆研究，最後連標點符號都被列為可疑證據。",dialogue:[["大鴿","你剛剛那句是在講我？"],["博士","我根本沒提到你。"],["盤咕","怎麼又開始了。"]],choices:["勸他不要想太多","順著他一起懷疑","故意把博士再拉進來"]},
+ {category:"棒球",title:"大鴿支持的球隊關鍵戰慘敗",description:"他從九局開始就不說話，比賽結束後卻突然一次補了十幾則訊息。",dialogue:[["大鴿","這調度到底在幹嘛？"],["汪達","我賽前就覺得危險。"]],choices:["陪他一起罵教練","叫他去睡覺","拿博士的預測來刺激他"]},
+ {category:"人生",title:"大鴿最近諸事不順",description:"工作、金錢與人際問題排隊報到，人生像刻意安排好的連續劇。",dialogue:[["大鴿","最近真的有夠衰。"],["西雅兔哥","至少還沒退群。"]],choices:["認真安慰他","笑他今年是不是犯太歲","幫他把問題一件件整理"]}
+];
+
+function statePayload(){
+ return {
+  player:{name:S.name,type:S.type},
+  time:{year:S.year,quarter:S.quarter,age:S.age},
+  stats:{mood:S.mood,anger:S.anger,trust:S.trust,suspicion:S.suspicion,stress:S.stress,social:S.social,wealth:S.wealth,love:S.love,health:S.health},
+  relations:{blocks:S.blocks,blocked:S.blocked},
+  flags:S.flags.slice(-12),
+  memories:S.memories.slice(-12).map(x=>({date:x.date,title:x.title,summary:x.summary})),
+  lastCategory:S.lastCategory
+ };
+}
+async function aiCall(path,body){
+ try{
+  const r=await fetch(path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
+  if(!r.ok)throw new Error("HTTP "+r.status);
+  const d=await r.json();
+  if(!d)return null;
+  $("aiBadge").textContent="AI 人生版";$("aiBadge").classList.remove("off");
+  return d;
+ }catch(e){
+  $("aiBadge").textContent="本機備援";$("aiBadge").classList.add("off");
+  return null;
+ }
+}
+function render(){
+ $("pname").textContent=S.name;$("meta").textContent=`${S.type} · 世界種子 ${S.seed}`;
+ $("dateBadge").textContent=`${S.year} Q${S.quarter}`;$("ageBadge").textContent=`${S.age} 歲`;
+ ["mood","anger","trust","suspicion"].forEach(k=>{$(k).textContent=Math.round(S[k]);$(k+"Bar").style.width=clamp(S[k])+"%"});
+ $("statusLine").textContent=`${S.blocked?"目前被封鎖｜":""}壓力 ${Math.round(S.stress)}｜社群聲望 ${Math.round(S.social)}｜本季傳奇人物：${S.legendary||"無"}`;
+ $("log").innerHTML=S.memories.slice().reverse().map(x=>`<div class="logitem"><b>${x.date}｜${x.title}</b><br>${x.summary}</div>`).join("");
+}
+function showDialogue(lines){
+ const d=$("dialogue");
+ if(!Array.isArray(lines)||!lines.length){d.classList.add("hidden");d.innerHTML="";return}
+ const normalized=lines.slice(0,8).map((x,i)=>{
+   if(typeof x==="string")return {name:i===0?"大鴿":"群友",text:x};
+   if(Array.isArray(x))return {name:String(x[0]||"群友"),text:String(x[1]||"")};
+   if(x&&typeof x==="object"){
+     return {
+       name:String(x.name||x.speaker||x.role||x.character||"群友"),
+       text:String(x.text||x.message||x.content||x.reply||"")
+     };
+   }
+   return null;
+ }).filter(x=>x&&x.text);
+ if(!normalized.length){d.classList.add("hidden");d.innerHTML="";return}
+ d.classList.remove("hidden");
+ d.innerHTML=normalized.map(x=>`<div class="chatLine"><span class="name ${x.name==="博士"?"doctor":x.name==="大鴿"?"":"npc"}">${escapeHtml(x.name)}：</span>${escapeHtml(x.text)}</div>`).join("");
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+
+function normalizeEvent(ev){
+ if(!ev||typeof ev!=="object")return null;
+ let dialogue=ev.dialogue||ev.messages||ev.chat||[];
+ let choices=ev.choices||ev.options||ev.actions||[];
+ if(!Array.isArray(dialogue))dialogue=[];
+ if(!Array.isArray(choices))choices=[];
+ choices=choices.map((c,i)=>{
+   if(typeof c==="string")return {id:"c"+i,text:c};
+   if(c&&typeof c==="object")return {id:String(c.id||c.key||("c"+i)),text:String(c.text||c.label||c.choice||c.action||"")};
+   return null;
+ }).filter(x=>x&&x.text).slice(0,3);
+ return {
+   category:String(ev.category||ev.type||"人生"),
+   title:String(ev.title||ev.eventTitle||ev.headline||"這一季發生了一些事"),
+   description:String(ev.description||ev.story||ev.summary||ev.text||"大鴿的生活又出現新的變數。"),
+   legendary:String(ev.legendary||ev.legendaryCharacter||ev.character||"無"),
+   dialogue,
+   choices
+ };
+}
+
+function fallbackEvent(){
+ const e=fallbackEvents[Math.floor(rng()*fallbackEvents.length)];
+ return {...e,legendary:"無",choices:e.choices.map((t,i)=>({text:t,id:"f"+i}))};
+}
+async function generateEvent(){
+ if(busy)return;busy=true;
+ $("options").innerHTML='<button class="opt" disabled>AI 正在生成這一季……</button>';
+ $("result").classList.add("hidden");$("dialogue").classList.add("hidden");
+ let data=null;
+ if(S.blocked){
+   data=await aiCall("/api/event",{mode:"blocked",state:statePayload()});
+ }else{
+   data=await aiCall("/api/event",{mode:"normal",state:statePayload()});
+ }
+ currentEvent=normalizeEvent(data?.event)||fallbackEvent();S.legendary=currentEvent.legendary||"無";if(S.legendary==="伊神")S.ishinEncounters++;
+ $("eventTag").textContent=currentEvent.category||"人生";
+ $("eventTitle").textContent=currentEvent.title||"這一季發生了一些事";
+ $("eventText").textContent=currentEvent.description||"大鴿的生活又出現新的變數。";
+ showDialogue(currentEvent.dialogue||[]);
+ const choices=(currentEvent.choices||[]).slice(0,3);
+ $("options").innerHTML="";
+ choices.forEach((c,i)=>{
+  const b=document.createElement("button");b.className="opt";b.textContent=typeof c==="string"?c:c.text;
+  b.onclick=()=>choose(typeof c==="string"?{text:c,id:"c"+i}:c);
+  $("options").appendChild(b);
+ });
+ if(!choices.length){
+   ["先安慰他","順著他的情緒","把博士扯進來"].forEach((t,i)=>{const b=document.createElement("button");b.className="opt";b.textContent=t;b.onclick=()=>choose({text:t,id:"fallback"+i});$("options").appendChild(b)});
+ }
+ busy=false;render();
+}
+function normalizeResult(r){
+ if(!r||typeof r!=="object")return null;
+ const dialogue=Array.isArray(r.dialogue||r.messages||r.chat)?(r.dialogue||r.messages||r.chat):[];
+ return {
+   summary:String(r.summary||r.story||r.outcome||r.description||"事情往意料之外的方向發展。"),
+   reaction:String(r.reaction||r.reply||r.dageReply||r.response||"算了啦，我真的懶得講。"),
+   dialogue,
+   delta:(r.delta&&typeof r.delta==="object")?r.delta:{},
+   flags:Array.isArray(r.flags)?r.flags:[],
+   unblock:r.unblock===true
+ };
+}
+
+function localDelta(choice){
+ let d={mood:Math.round(rng()*11-5),anger:Math.round(rng()*15-5),trust:Math.round(rng()*11-5),suspicion:Math.round(rng()*10-3)};
+ const t=choice.text;
+ if(/安慰|幫|整理|勸/.test(t)){d.trust+=5;d.anger-=4;d.mood+=4}
+ if(/博士|伊神/.test(t)){d.anger+=9;d.suspicion+=4}
+ if(/笑|刺激|懷疑|起鬨/.test(t)){d.anger+=9;d.trust-=4;d.suspicion+=5}
+ return d;
+}
+function applyDelta(d){
+ ["mood","anger","trust","suspicion","stress","social","wealth","love","health"].forEach(k=>{if(typeof d?.[k]==="number")S[k]=clamp(S[k]+d[k])});
+}
+function maybeBlock(){
+ if(S.blocked)return;
+ const p=0.08+S.anger/420+S.suspicion/520-S.trust/900;
+ if(rng()<Math.max(.03,p)){S.blocked=true;S.blocks++;S.flags.push("被封鎖")}
+}
+function maybeUnblock(result){
+ if(!S.blocked)return;
+ if(result?.unblock===true || (S.trust>60&&rng()<.28)){S.blocked=false;S.flags.push("解除封鎖")}
+}
+function maybeEnd(){
+ if(S.blocks>=5&&S.trust<20&&rng()<.25){S.forcedEnding="反覆封鎖後永久決裂";return true}
+ if(S.suspicion>95&&S.trust<15&&rng()<.2){S.forcedEnding="假好友身分曝光";return true}
+ if(S.age>=S.deathAge&&rng()<.08){S.forcedEnding="大鴿人生走到終點";return true}
+ return false;
+}
+async function choose(choice){
+ if(busy)return;busy=true;
+ [...$("options").children].forEach(x=>x.disabled=true);
+ $("result").classList.remove("hidden");$("result").innerHTML="AI 正在推演後續……";
+ let data=await aiCall("/api/resolve",{state:statePayload(),event:currentEvent,choice});
+ let result=normalizeResult(data?.result)||null;
+ if(!result){
+   const d=localDelta(choice);
+   result={summary:`你選擇「${choice.text}」後，大鴿的情緒又往不可預測的方向偏了一點。`,reaction:"算了啦，我真的懶得講。",dialogue:[{name:"大鴿",text:"算了啦，我真的懶得講。"}],delta:d,flags:[]};
+ }
+ applyDelta(result.delta||{});
+ (result.flags||[]).forEach(f=>{if(f&&!S.flags.includes(f))S.flags.push(f)});
+ maybeUnblock(result);
+ maybeBlock();
+
+ const date=`${S.year} Q${S.quarter}`;
+ S.memories.push({date,title:currentEvent.title,summary:result.summary||currentEvent.description,choice:choice.text});
+ S.lastCategory=currentEvent.category||"人生";
+
+ const deltas=Object.entries(result.delta||{}).filter(([k,v])=>typeof v==="number"&&v!==0).map(([k,v])=>`<span class="delta ${v>0?"plus":"minus"}">${({mood:"心情",anger:"怒氣",trust:"信任",suspicion:"懷疑",stress:"壓力",social:"聲望",wealth:"財務",love:"感情",health:"健康",doctorRivalry:"博士競爭"})[k]||k} ${v>0?"+":""}${Math.round(v)}</span>`).join("");
+ $("result").innerHTML=`<h3>事情後來變成這樣</h3><div class="eventText">${result.summary||""}</div>${result.reaction?`<div class="chat"><div class="chatLine"><span class="name">大鴿：</span>${result.reaction}</div></div>`:""}<div class="deltaRow">${deltas}</div><button id="nextBtn" class="btn primary" style="margin-top:12px">進入下一季</button>`;
+ if(Array.isArray(result.dialogue)&&result.dialogue.length) showDialogue(result.dialogue);
+ render();
+ $("nextBtn").onclick=()=>{
+   if(maybeEnd()){finish();return}
+   S.quarter++;if(S.quarter>4){S.quarter=1;S.year++}if(S.quarter===3)S.age++;
+   busy=false;generateEvent();
+ };
+ busy=false;
+}
+async function finish(){
+ $("game").classList.add("hidden");$("ending").classList.remove("hidden");
+ const years=(S.year-2019)+(S.quarter-1)/4;
+ let bioData=await aiCall("/api/biography",{state:statePayload(),memories:S.memories.slice(-60),forcedEnding:S.forcedEnding});
+ const title=bioData?.title || (S.forcedEnding||"大鴿多年好友");
+ const rank=bioData?.rank || (S.trust>70?"A":S.trust>45?"B":"C");
+ const bio=bioData?.biography || `你陪大鴿走過約 ${years.toFixed(1)} 年。這段人生裡，球賽、博士、群組、封鎖與各種莫名其妙的事件輪流登場。`;
+ $("rank").textContent=rank;$("endingTitle").textContent=title;$("endingSummary").textContent=`陪伴約 ${years.toFixed(1)} 年｜被封鎖 ${S.blocks} 次｜最終信任 ${Math.round(S.trust)}`;$("biography").textContent=bio;
+}
+$("startBtn").onclick=()=>{
+ const name=$("playerName").value.trim()||"Lv.0 摯友",seed=$("seed").value.trim()||"AI-DAGE";
+ rng=mulberry32(hashString(name+"|"+seed+"|"+chosenType));
+ S={name,seed,type:chosenType,year:2019,quarter:1,age:27,mood:58,anger:42,trust:52,suspicion:18,stress:32,social:50,wealth:50,love:20,health:82,blocks:0,blocked:false,flags:[],memories:[],lastCategory:null,forcedEnding:null,legendary:"無",ishinEncounters:0,deathAge:Math.floor(70+rng()*16)};
+ if(chosenType==="貼心型")S.trust+=8;if(chosenType==="拱火型")S.anger+=8;if(chosenType==="情報型")S.suspicion=Math.max(0,S.suspicion-3);if(chosenType==="雙面型"){S.trust+=3;S.suspicion+=3}
+ $("setup").classList.add("hidden");$("game").classList.remove("hidden");render();generateEvent();
+};
+$("retireBtn").onclick=finish;
+</script>
+</body>
+</html>
