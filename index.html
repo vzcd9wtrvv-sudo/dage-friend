@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07131d">
-<title>大鴿好友模擬器 v2.3 診斷版</title>
+<title>大鴿好友模擬器 v3.0 Offline</title>
 <style>
 :root{--bg:#07131d;--panel:#0d2130;--line:#29495f;--txt:#edf5f9;--muted:#91a8b8;--gold:#e7b84f;--purple:#a681e8;--green:#62ca8e;--red:#e3777e}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:linear-gradient(180deg,#07131d,#050e17);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC",sans-serif}
@@ -30,7 +30,7 @@ input{width:100%;background:#091d2b;border:1px solid #365c73;color:#fff;border-r
 <body>
 <div class="wrap">
   <div class="hero">
-    <div class="logo">🕊️ <em>大鴿好友</em>模擬器 <span id="aiBadge" class="badge">AI 人生版</span></div>
+    <div class="logo">🕊️ <em>大鴿好友</em>模擬器 <span id="aiBadge" class="badge">OFFLINE ENGINE</span></div>
     <div class="sub">AI 主導劇情；加入 JSON 容錯與對話格式修復。</div>
   </div>
 
@@ -94,19 +94,61 @@ input{width:100%;background:#091d2b;border:1px solid #365c73;color:#fff;border-r
   </section>
 </div>
 
+
 <script>
 function hashString(str){let h=2166136261>>>0;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 const $=id=>document.getElementById(id), clamp=v=>Math.max(0,Math.min(100,v));
 let rng=Math.random,chosenType="貼心型",S=null,currentEvent=null,busy=false;
 
-document.querySelectorAll(".choice").forEach(b=>b.onclick=()=>{document.querySelectorAll(".choice").forEach(x=>x.classList.remove("active"));b.classList.add("active");chosenType=b.dataset.type});
+document.querySelectorAll(".choice").forEach(b=>b.onclick=()=>{
+ document.querySelectorAll(".choice").forEach(x=>x.classList.remove("active"));
+ b.classList.add("active");chosenType=b.dataset.type
+});
 
-const fallbackEvents=[
- {category:"社群",title:"大鴿突然覺得群友在影射他",description:"一則原本普通的回覆被他反覆研究，最後連標點符號都被列為可疑證據。",dialogue:[["大鴿","你剛剛那句是在講我？"],["博士","我根本沒提到你。"],["盤咕","怎麼又開始了。"]],choices:["勸他不要想太多","順著他一起懷疑","故意把博士再拉進來"]},
- {category:"棒球",title:"大鴿支持的球隊關鍵戰慘敗",description:"他從九局開始就不說話，比賽結束後卻突然一次補了十幾則訊息。",dialogue:[["大鴿","這調度到底在幹嘛？"],["汪達","我賽前就覺得危險。"]],choices:["陪他一起罵教練","叫他去睡覺","拿博士的預測來刺激他"]},
- {category:"人生",title:"大鴿最近諸事不順",description:"工作、金錢與人際問題排隊報到，人生像刻意安排好的連續劇。",dialogue:[["大鴿","最近真的有夠衰。"],["西雅兔哥","至少還沒退群。"]],choices:["認真安慰他","笑他今年是不是犯太歲","幫他把問題一件件整理"]}
+const PEOPLE=["博士","伊神","盤咕","汪達","西雅兔哥","柳丁哥","醬財","養肌","莫提斯"];
+const EVENT_LIBRARY=[
+ {id:"group-shadow",cat:"社群",w:9,title:"大鴿突然覺得群友在影射他",desc:"一則原本普通的回覆被他反覆研究，最後連標點符號都被列為可疑證據。",dlg:[["大鴿","你剛剛那句是在講我？"],["博士","我根本沒提到你。"],["盤咕","怎麼又開始了。"]],choices:["勸他不要想太多","順著他一起懷疑","故意把博士再拉進來"],tags:["社群","懷疑"]},
+ {id:"late-loss",cat:"棒球",w:8,title:"支持的球隊九局翻車",desc:"他原本一路保持沉默，直到最後一個出局數才突然連發十幾則訊息，把調度、守備和運氣全部算進帳。",dlg:[["大鴿","這調度到底在幹嘛？"],["汪達","我賽前就覺得危險。"]],choices:["陪他一起罵教練","叫他去睡覺","拿博士賽前預測來刺激他"],tags:["棒球","怒氣"]},
+ {id:"work-shift",cat:"工作",w:8,title:"班表突然被改",desc:"大鴿原本以為這週可以早點下班，結果臨時被換班，整天都在群組裡碎念誰又臨時請假。",dlg:[["大鴿","每次都最後一刻才講。"],["西雅兔哥","先撐完今天吧。"]],choices:["幫他一起抱怨","勸他先把班上完","提醒他下次先確認班表"],tags:["工作","壓力"]},
+ {id:"salary-short",cat:"財務",w:6,title:"月底突然覺得錢不夠用",desc:"他把這個月的娛樂、交通和遊戲支出全部攤開來看，越算越覺得每一筆都不能刪。",dlg:[["大鴿","我也沒有亂花吧。"],["盤咕","你先不要看商城。"]],choices:["幫他列預算","說服他先忍一個月","故意傳新禮包給他看"],tags:["財務"]},
+ {id:"card-luck",cat:"遊戲",w:7,title:"抽卡結果讓大鴿情緒大起大落",desc:"前幾抽看起來像要沉船，最後卻突然跳出一張他想很久的卡，群組瞬間從安慰區變成曬卡區。",dlg:[["大鴿","我就知道最後會出。"],["博士","前面不是還說要退坑？"]],choices:["恭喜他運氣回來","提醒他不要再追","叫博士曬更好的卡"],tags:["遊戲","運氣"]},
+ {id:"old-grudge",cat:"社群",w:7,title:"多年以前的舊事突然又被翻出來",desc:"一張不知道誰存了很久的截圖重新出現在聊天裡，大鴿立刻把時間線、人物和當年的語氣全部重新整理一次。",dlg:[["大鴿","這件事根本不是你們講的那樣。"],["柳丁哥","怎麼又挖到這張。"]],choices:["勸大家到此為止","陪他重建時間線","補一張更早的截圖"],tags:["社群","舊帳"]},
+ {id:"quiet-day",cat:"生活",w:8,title:"難得什麼大事都沒發生",desc:"沒有退群、沒有吵架、沒有突發支出，連球賽都平淡得不像真的。大鴿反而開始懷疑是不是暴風雨前的寧靜。",dlg:[["大鴿","今天怎麼這麼安靜？"],["莫提斯","安靜不好嗎。"]],choices:["叫他享受平靜","陪他找事情做","故意丟一個有爭議的話題"],tags:["生活"]},
+ {id:"travel-plan",cat:"旅行",w:5,title:"突然開始研究一趟旅行",desc:"大鴿原本只是隨手看機票，半小時後已經開始比較住宿、交通和球場行程，還順便問群友有沒有值得帶回來的東西。",dlg:[["大鴿","如果去的話要不要排球場？"],["汪達","你先把假排到再說。"]],choices:["幫他認真排行程","叫他先存錢","一直推薦更貴的方案"],tags:["旅行"]},
+ {id:"romance-msg",cat:"感情",w:5,title:"一則曖昧訊息讓他想太多",desc:"對方只是一句普通問候，大鴿卻從回覆速度、標點和貼圖開始推理，整個晚上都在問你到底代表什麼。",dlg:[["大鴿","她這樣回是不是有意思？"],["養肌","你先不要腦補。"]],choices:["叫他自然回覆","陪他逐字分析","故意說這一定有戲"],tags:["感情","懷疑"]},
+ {id:"friend-borrow",cat:"財務",w:4,title:"有人突然開口借錢",desc:"對方理由聽起來不算離譜，但時間點又讓人有點尷尬。大鴿一邊說自己不想管，一邊已經問了三次細節。",dlg:[["大鴿","我最討厭這種突然開口的。"],["盤咕","那就先不要借。"]],choices:["勸他直接拒絕","叫他只借小額","幫他分析對方可信度"],tags:["財務","人際"]},
+ {id:"doctor-debate",cat:"社群",w:6,title:"博士又拿數據來挑戰他的看法",desc:"一開始只是球員比較，講到後來兩個人各自拿出不同年份和情境，誰都不肯先停。",dlg:[["博士","你這個樣本根本不夠。"],["大鴿","你每次都只會看數字。"]],choices:["當和事佬","站大鴿這邊","故意叫博士再補數據"],tags:["博士","棒球"]},
+ {id:"ishin-entry",cat:"社群",w:6,title:"伊神突然加入話題",desc:"原本只是幾個人的小爭論，伊神一進來後語氣立刻升級，三句話內就把事情從意見不同變成誰都不想先下台。",dlg:[["伊神","你是在講什麼。"],["伊神","講重點。"],["大鴿","我又沒有在說你。"]],choices:["叫伊神先停","讓他們兩個自己講","順手補一句更刺激的"],tags:["伊神","社群"]},
+ {id:"health-small",cat:"健康",w:5,title:"身體突然出現小狀況",desc:"不是大病，但就是足以讓他整天不舒服。他嘴上說沒事，卻比平常更容易對小事不耐煩。",dlg:[["大鴿","應該睡一覺就好了。"],["西雅兔哥","真的不舒服就去看一下。"]],choices:["勸他休息","陪他聊別的轉移注意","說他一定是想太多"],tags:["健康"]},
+ {id:"fan-event",cat:"追星",w:5,title:"突然看到想去的活動",desc:"消息一出，大鴿開始查時間、交通和門票，前一秒還說太麻煩，下一秒已經在研究哪個位置比較好。",dlg:[["大鴿","如果剛好休假就可以去。"],["汪達","你明明就很想去。"]],choices:["鼓勵他去","提醒他量力而為","叫他直接衝最貴的位置"],tags:["追星","財務"]},
+ {id:"block-return",cat:"社群",w:2,title:"封鎖名單上的人突然又出現",desc:"共同好友轉來一句話，讓原本已經沉下去的恩怨重新浮上來。大鴿表面說無所謂，其實一直追問對方到底講了什麼。",dlg:[["大鴿","他又講什麼？"],["醬財","就一句而已。"]],choices:["勸他別回頭看","幫他問清楚","故意只講一半"],tags:["封鎖","舊帳"],cond:s=>s.blocks>0},
+ {id:"trust-secret",cat:"人生",w:2,title:"大鴿少見地主動說了私事",desc:"沒有在群組講，也沒有先鋪陳。他只是突然私訊你，說最近有件事一直卡在心裡，想找一個不會到處傳的人講。",dlg:[["大鴿","這個你不要跟別人講。"]],choices:["認真聽他說","先問他為什麼找你","故意拿玩笑帶過"],tags:["信任","私事"],cond:s=>s.trust>=68},
+ {id:"anger-meltdown",cat:"社群",w:3,title:"大鴿的怒氣終於突破臨界點",desc:"前幾季累積的小事一次爆開，他開始把不同事件串在一起，覺得所有人其實早就站在同一邊。",dlg:[["大鴿","你們早就講好了吧。"],["伊神","不爽就退啊。"]],choices:["阻止他退群","陪他一起開罵","先叫所有人閉嘴冷靜"],tags:["怒氣","伊神"],cond:s=>s.anger>=78},
+ {id:"good-streak",cat:"生活",w:3,title:"最近居然連續幾件事都很順",desc:"工作沒出包、球隊贏球、遊戲也抽到想要的東西。大鴿開始覺得自己是不是終於轉運了。",dlg:[["大鴿","最近真的有點順。"],["博士","你不要太早講。"]],choices:["叫他好好享受","提醒他低調一點","故意說博士在唱衰"],tags:["生活","好運"],cond:s=>s.mood>=65},
+ {id:"low-social",cat:"人際",w:3,title:"群組最近明顯變安靜",desc:"熟悉的人變少，話題也接不起來。大鴿一邊說清靜很好，一邊開始回顧以前最熱鬧的時候。",dlg:[["大鴿","以前至少每天都有人講。"],["柳丁哥","大家都忙了吧。"]],choices:["陪他回憶","叫他主動開新話題","說人少反而比較不會吵"],tags:["人際"],cond:s=>s.social<=35},
+ {id:"money-win",cat:"財務",w:2,title:"意外拿到一筆小收入",desc:"金額沒有大到改變人生，但足以讓他開始盤算到底該存起來、補之前的支出，還是拿去做一件一直想做的事。",dlg:[["大鴿","這筆其實可以做很多事。"],["盤咕","先不要全部花掉。"]],choices:["叫他先存一半","支持他買想要的東西","幫他補之前的缺口"],tags:["財務","好運"]},
+ {id:"family-duty",cat:"家庭",w:5,title:"家裡臨時需要他幫忙",desc:"原本排好的休息被打亂，大鴿嘴上嫌麻煩，最後還是去處理，只是一路上都在群組裡抱怨時間被吃掉。",dlg:[["大鴿","怎麼每次都剛好是我。"],["西雅兔哥","處理完就好了。"]],choices:["叫他先把家裡顧好","陪他抱怨","提醒他之後提早留時間"],tags:["家庭"]},
+ {id:"ticket-fail",cat:"追星",w:4,title:"搶票失敗",desc:"頁面轉了半天，最後只留下售罄。大鴿先說算了，過五分鐘又開始刷新，還問是不是有人多買。",dlg:[["大鴿","我剛剛明明有進去。"],["汪達","你先別一直刷。"]],choices:["安慰他下次還有機會","幫他找正常轉讓","笑他剛剛不是說算了"],tags:["追星","怒氣"]},
+ {id:"weather-game",cat:"棒球",w:4,title:"球賽因天氣延誤",desc:"等待時間比比賽本身還折磨，大鴿每隔十分鐘就更新一次天氣雷達，群組最後變成氣象觀測站。",dlg:[["大鴿","這雨到底要下多久。"],["博士","照雷達至少還要一陣子。"]],choices:["陪他等","叫他去做別的事","故意說等等一定取消"],tags:["棒球","生活"]},
+ {id:"phone-bug",cat:"生活",w:5,title:"手機突然出現怪問題",desc:"不是完全壞掉，但就是一直卡在最煩的位置。大鴿重開、清快取、換網路，每做一步都要在群組回報。",dlg:[["大鴿","剛剛明明還可以。"],["養肌","先重開機。"]],choices:["一步步幫他排查","叫他先放著","說一定是他亂按到"],tags:["生活","科技"]},
+ {id:"old-friend",cat:"人際",w:4,title:"很久沒聯絡的人突然出現",desc:"對方一句簡單問候，讓大鴿一下想到很多以前的事情。他不確定該熱絡回覆，還是維持現在的距離。",dlg:[["大鴿","他怎麼突然找我。"]],choices:["叫他正常回覆","先觀察對方目的","直接問是不是有事"],tags:["人際","懷疑"]},
+ {id:"promotion-rumor",cat:"工作",w:4,title:"工作上出現一個可能的變動",desc:"還沒正式確定，但同事之間已經開始傳消息。大鴿既想知道真相，又怕自己太早表態。",dlg:[["大鴿","到底是真的還假的。"]],choices:["叫他先等正式消息","幫他側面打聽","鼓勵他主動爭取"],tags:["工作","機會"]},
+ {id:"sleep-debt",cat:"健康",w:5,title:"連續幾天睡不好",desc:"大鴿開始在半夜回訊息，白天又特別容易不耐煩。明明知道該早睡，還是一直滑手機看到更晚。",dlg:[["大鴿","我就是睡不著。"],["莫提斯","你先把手機放下。"]],choices:["勸他今晚真的早睡","陪他聊到想睡","叫他乾脆看球看到天亮"],tags:["健康","壓力"]},
+ {id:"small-win",cat:"生活",w:6,title:"一件小事意外讓他心情變好",desc:"可能只是吃到想吃的東西、排隊比預期快，或剛好遇到一個好消息。事情很小，但他整季的語氣明顯比較輕。",dlg:[["大鴿","今天至少這件事還不錯。"]],choices:["順著好心情聊","叫他趁機做點正事","提醒他不要太早得意"],tags:["生活","心情"]},
+ {id:"misread-text",cat:"社群",w:7,title:"他又把一句話看成另一個意思",desc:"對方只是隨手回覆，大鴿卻覺得那個語氣不對。你越解釋，他越覺得大家是不是在幫對方圓。",dlg:[["大鴿","你不覺得這句很怪嗎？"],["柳丁哥","真的沒有那個意思。"]],choices:["直接說他想太多","幫他逐句分析","先轉移話題"],tags:["社群","懷疑"]},
+ {id:"group-invite",cat:"社群",w:5,title:"有人邀他加入新的群組",desc:"新群看起來熱鬧，但裡面也有幾個他不太熟的人。大鴿一邊說只是看看，一邊已經開始研究誰跟誰比較熟。",dlg:[["大鴿","我先進去看看而已。"],["盤咕","你每次都這樣講。"]],choices:["鼓勵他低調觀察","叫他不要亂加群","陪他研究群裡的人"],tags:["社群","人際"]},
+ {id:"sale-item",cat:"消費",w:5,title:"一直想買的東西突然特價",desc:"折扣不算誇張，但剛好踩到他的心理價位。大鴿開始問每個人值不值得，問完後又逐一反駁。",dlg:[["大鴿","其實這價格可以吧。"],["汪達","你只是想找人同意。"]],choices:["說想要就買","叫他等一天再決定","故意推薦更貴的版本"],tags:["消費","財務"]},
+ {id:"milestone",cat:"人生",w:3,title:"突然意識到時間過得很快",desc:"一個年份、一場比賽或某個人的近況，讓大鴿忽然開始回頭算自己這幾年到底做了什麼。",dlg:[["大鴿","怎麼一下就過這麼久了。"]],choices:["陪他認真回顧","叫他想下一步","用以前的黑歷史打斷感性"],tags:["人生","回顧"],cond:s=>s.year>=2023}
 ];
+
+const REACTIONS={
+ calm:["好啦，我知道了。","先這樣吧，我再看看。","其實也沒有到多嚴重。","嗯，這樣講好像也有道理。"],
+ angry:["不是啊，這明明就很扯。","你們每次都先叫我冷靜，問題又不是我先開始。","我真的不懂這有什麼好護航的。","算了，我先不回了，不然等等又說我在吵。"],
+ trust:["這個我只跟你講，你不要出去講。","你至少有在聽我講完。","好啦，這次我信你。","我本來不想講，但你應該懂。"],
+ suspicious:["你真的確定不是在套我話？","我先問清楚，你不要等等又改口。","這件事我覺得沒有那麼單純。","先不要急，我想一下他為什麼會這樣講。"],
+ amused:["靠，這也太剛好了吧。","好啦這個有好笑。","今天至少不是全部都在搞我。","這個我可以接受。"]
+};
 
 function statePayload(){
  return {
@@ -115,22 +157,9 @@ function statePayload(){
   stats:{mood:S.mood,anger:S.anger,trust:S.trust,suspicion:S.suspicion,stress:S.stress,social:S.social,wealth:S.wealth,love:S.love,health:S.health},
   relations:{blocks:S.blocks,blocked:S.blocked},
   flags:S.flags.slice(-12),
-  memories:S.memories.slice(-12).map(x=>({date:x.date,title:x.title,summary:x.summary})),
+  memories:S.memories.slice(-12),
   lastCategory:S.lastCategory
  };
-}
-async function aiCall(path,body){
- try{
-  const r=await fetch(path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
-  if(!r.ok)throw new Error("HTTP "+r.status);
-  const d=await r.json();
-  if(!d)return null;
-  $("aiBadge").textContent="AI 人生版";$("aiBadge").classList.remove("off");
-  return d;
- }catch(e){
-  $("aiBadge").textContent="本機備援";$("aiBadge").classList.add("off");
-  return null;
- }
 }
 function render(){
  $("pname").textContent=S.name;$("meta").textContent=`${S.type} · 世界種子 ${S.seed}`;
@@ -139,97 +168,79 @@ function render(){
  $("statusLine").textContent=`${S.blocked?"目前被封鎖｜":""}壓力 ${Math.round(S.stress)}｜社群聲望 ${Math.round(S.social)}｜本季傳奇人物：${S.legendary||"無"}`;
  $("log").innerHTML=S.memories.slice().reverse().map(x=>`<div class="logitem"><b>${x.date}｜${x.title}</b><br>${x.summary}</div>`).join("");
 }
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 function showDialogue(lines){
  const d=$("dialogue");
  if(!Array.isArray(lines)||!lines.length){d.classList.add("hidden");d.innerHTML="";return}
- const normalized=lines.slice(0,8).map((x,i)=>{
-   if(typeof x==="string")return {name:i===0?"大鴿":"群友",text:x};
-   if(Array.isArray(x))return {name:String(x[0]||"群友"),text:String(x[1]||"")};
-   if(x&&typeof x==="object"){
-     return {
-       name:String(x.name||x.speaker||x.role||x.character||"群友"),
-       text:String(x.text||x.message||x.content||x.reply||"")
-     };
-   }
-   return null;
- }).filter(x=>x&&x.text);
- if(!normalized.length){d.classList.add("hidden");d.innerHTML="";return}
  d.classList.remove("hidden");
- d.innerHTML=normalized.map(x=>`<div class="chatLine"><span class="name ${x.name==="博士"?"doctor":x.name==="大鴿"?"":"npc"}">${escapeHtml(x.name)}：</span>${escapeHtml(x.text)}</div>`).join("");
+ d.innerHTML=lines.slice(0,8).map(x=>`<div class="chatLine"><span class="name ${x[0]==="博士"?"doctor":x[0]==="大鴿"?"":"npc"}">${escapeHtml(x[0])}：</span>${escapeHtml(x[1])}</div>`).join("");
 }
-function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
-
-function normalizeEvent(ev){
- if(!ev||typeof ev!=="object")return null;
- let dialogue=ev.dialogue||ev.messages||ev.chat||[];
- let choices=ev.choices||ev.options||ev.actions||[];
- if(!Array.isArray(dialogue))dialogue=[];
- if(!Array.isArray(choices))choices=[];
- choices=choices.map((c,i)=>{
-   if(typeof c==="string")return {id:"c"+i,text:c};
-   if(c&&typeof c==="object")return {id:String(c.id||c.key||("c"+i)),text:String(c.text||c.label||c.choice||c.action||"")};
-   return null;
- }).filter(x=>x&&x.text).slice(0,3);
+function weightedPick(items){
+ const valid=items.filter(e=>!e.cond||e.cond(S));
+ const recentIds=S.memories.slice(-6).map(m=>m.eventId);
+ let pool=valid.map(e=>({...e,_w:e.w*(recentIds.includes(e.id)?0.12:1)*(S.lastCategory===e.cat?0.7:1)}));
+ let total=pool.reduce((a,e)=>a+e._w,0),r=rng()*total;
+ for(const e of pool){r-=e._w;if(r<=0)return e}
+ return pool[0];
+}
+function personalizeEvent(base){
+ let legendary="無",dlg=base.dlg.map(x=>[...x]);
+ if(base.tags.includes("伊神")) legendary="伊神";
+ else if(base.tags.includes("博士")) legendary="博士";
+ else if(rng()<0.16){legendary=PEOPLE[Math.floor(rng()*PEOPLE.length)]; if(!dlg.some(x=>x[0]===legendary))dlg.push([legendary, legendary==="伊神"?"你們到底在繞什麼，講重點。":legendary==="博士"?"先把資料看清楚再講。":"我先看看你們在吵什麼。"])}
+ let title=base.title,desc=base.desc;
+ if(S.anger>75 && rng()<.35)desc+=" 他現在的火氣明顯比平常更大，連原本不相關的小事都容易被扯進來。";
+ if(S.trust>70 && rng()<.25)desc+=" 不過這次他對你明顯比較沒有防備，願意多講一些平常不會公開說的東西。";
+ if(S.suspicion>75 && rng()<.3)desc+=" 他同時一直在確認你是不是還知道別的內幕。";
+ return {id:base.id,category:base.cat,title,description:desc,legendary,dialogue:dlg,choices:base.choices.map((text,i)=>({id:String.fromCharCode(97+i),text})),tags:base.tags};
+}
+function blockedEvent(){
  return {
-   category:String(ev.category||ev.type||"人生"),
-   title:String(ev.title||ev.eventTitle||ev.headline||"這一季發生了一些事"),
-   description:String(ev.description||ev.story||ev.summary||ev.text||"大鴿的生活又出現新的變數。"),
-   legendary:String(ev.legendary||ev.legendaryCharacter||ev.character||"無"),
-   dialogue,
-   choices
+  id:"blocked-"+S.blocks,category:"封鎖",title:"你還在大鴿的封鎖名單裡",
+  description:"這一季你無法直接找他，只能從共同好友、群組動態或偶爾傳來的片段消息判斷他現在的狀態。",
+  legendary:rng()<.35?"伊神":"無",
+  dialogue:rng()<.5?[["盤咕","他現在還是不想回你。"]]:[["伊神","不爽就先不要講啊。"]],
+  choices:[
+   {id:"a",text:"先完全不打擾他"},
+   {id:"b",text:"請共同好友只傳一句話"},
+   {id:"c",text:"等一季後再看看"}
+  ],tags:["封鎖"]
  };
 }
-
-function fallbackEvent(){
- const e=fallbackEvents[Math.floor(rng()*fallbackEvents.length)];
- return {...e,legendary:"無",choices:e.choices.map((t,i)=>({text:t,id:"f"+i}))};
-}
-async function generateEvent(){
+function generateEvent(){
  if(busy)return;busy=true;
- $("options").innerHTML='<button class="opt" disabled>AI 正在生成這一季……</button>';
  $("result").classList.add("hidden");$("dialogue").classList.add("hidden");
- let data=null;
- if(S.blocked){
-   data=await aiCall("/api/event",{mode:"blocked",state:statePayload()});
- }else{
-   data=await aiCall("/api/event",{mode:"normal",state:statePayload()});
- }
- currentEvent=normalizeEvent(data?.event)||fallbackEvent();S.legendary=currentEvent.legendary||"無";if(S.legendary==="伊神")S.ishinEncounters++;
- $("eventTag").textContent=currentEvent.category||"人生";
- $("eventTitle").textContent=currentEvent.title||"這一季發生了一些事";
- $("eventText").textContent=currentEvent.description||"大鴿的生活又出現新的變數。";
+ currentEvent=S.blocked?blockedEvent():personalizeEvent(weightedPick(EVENT_LIBRARY));
+ S.legendary=currentEvent.legendary||"無";
+ if(S.legendary==="伊神")S.ishinEncounters++;
+ $("eventTag").textContent=currentEvent.category;
+ $("eventTitle").textContent=currentEvent.title;
+ $("eventText").textContent=currentEvent.description;
  showDialogue(currentEvent.dialogue||[]);
- const choices=(currentEvent.choices||[]).slice(0,3);
  $("options").innerHTML="";
- choices.forEach((c,i)=>{
-  const b=document.createElement("button");b.className="opt";b.textContent=typeof c==="string"?c:c.text;
-  b.onclick=()=>choose(typeof c==="string"?{text:c,id:"c"+i}:c);
-  $("options").appendChild(b);
+ currentEvent.choices.forEach(c=>{
+  const b=document.createElement("button");b.className="opt";b.textContent=c.text;b.onclick=()=>choose(c);$("options").appendChild(b);
  });
- if(!choices.length){
-   ["先安慰他","順著他的情緒","把博士扯進來"].forEach((t,i)=>{const b=document.createElement("button");b.className="opt";b.textContent=t;b.onclick=()=>choose({text:t,id:"fallback"+i});$("options").appendChild(b)});
- }
  busy=false;render();
 }
-function normalizeResult(r){
- if(!r||typeof r!=="object")return null;
- const dialogue=Array.isArray(r.dialogue||r.messages||r.chat)?(r.dialogue||r.messages||r.chat):[];
- return {
-   summary:String(r.summary||r.story||r.outcome||r.description||"事情往意料之外的方向發展。"),
-   reaction:String(r.reaction||r.reply||r.dageReply||r.response||"算了啦，我真的懶得講。"),
-   dialogue,
-   delta:(r.delta&&typeof r.delta==="object")?r.delta:{},
-   flags:Array.isArray(r.flags)?r.flags:[],
-   unblock:r.unblock===true
- };
+function reactionFor(delta){
+ let pool=REACTIONS.calm;
+ if(S.anger+delta.anger>72)pool=REACTIONS.angry;
+ else if(S.suspicion+delta.suspicion>70)pool=REACTIONS.suspicious;
+ else if(S.trust+delta.trust>72)pool=REACTIONS.trust;
+ else if(S.mood+delta.mood>70)pool=REACTIONS.amused;
+ return pool[Math.floor(rng()*pool.length)];
 }
-
 function localDelta(choice){
- let d={mood:Math.round(rng()*11-5),anger:Math.round(rng()*15-5),trust:Math.round(rng()*11-5),suspicion:Math.round(rng()*10-3)};
+ let d={mood:Math.round(rng()*9-4),anger:Math.round(rng()*11-4),trust:Math.round(rng()*9-4),suspicion:Math.round(rng()*9-3),stress:Math.round(rng()*7-3)};
  const t=choice.text;
- if(/安慰|幫|整理|勸/.test(t)){d.trust+=5;d.anger-=4;d.mood+=4}
- if(/博士|伊神/.test(t)){d.anger+=9;d.suspicion+=4}
- if(/笑|刺激|懷疑|起鬨/.test(t)){d.anger+=9;d.trust-=4;d.suspicion+=5}
+ if(/安慰|幫|整理|勸|正常回覆|低調|休息|先存|先等|不打擾/.test(t)){d.trust+=6;d.anger-=4;d.mood+=4;d.stress-=3}
+ if(/博士|伊神|刺激|開罵|起鬨|黑歷史|更貴|全部花|一定有戲/.test(t)){d.anger+=9;d.suspicion+=5;d.trust-=4}
+ if(/分析|問清楚|研究|側面打聽/.test(t)){d.suspicion+=3;d.trust+=1}
+ if(/工作|班|爭取/.test(currentEvent.category+currentEvent.title))d.stress+=2;
+ if(currentEvent.category==="財務"||currentEvent.category==="消費")d.wealth=(/存|預算|補/.test(t)?4:-3);
+ if(currentEvent.category==="感情")d.love=(/自然|正常|認真/.test(t)?5:2);
+ if(currentEvent.category==="健康")d.health=(/休息|看一下/.test(t)?4:-2);
  return d;
 }
 function applyDelta(d){
@@ -237,12 +248,13 @@ function applyDelta(d){
 }
 function maybeBlock(){
  if(S.blocked)return;
- const p=0.08+S.anger/420+S.suspicion/520-S.trust/900;
- if(rng()<Math.max(.03,p)){S.blocked=true;S.blocks++;S.flags.push("被封鎖")}
+ const p=0.035+S.anger/500+S.suspicion/650-S.trust/1100;
+ if(rng()<Math.max(.015,p)){S.blocked=true;S.blocks++;S.flags.push("被封鎖")}
 }
-function maybeUnblock(result){
+function maybeUnblock(choice){
  if(!S.blocked)return;
- if(result?.unblock===true || (S.trust>60&&rng()<.28)){S.blocked=false;S.flags.push("解除封鎖")}
+ const good=/不打擾|共同好友|等/.test(choice.text);
+ if((good&&rng()<.42)||(S.trust>62&&rng()<.22)){S.blocked=false;S.flags.push("解除封鎖")}
 }
 function maybeEnd(){
  if(S.blocks>=5&&S.trust<20&&rng()<.25){S.forcedEnding="反覆封鎖後永久決裂";return true}
@@ -250,53 +262,70 @@ function maybeEnd(){
  if(S.age>=S.deathAge&&rng()<.08){S.forcedEnding="大鴿人生走到終點";return true}
  return false;
 }
-async function choose(choice){
+function summaryFor(choice,delta){
+ const effects=[];
+ if((delta.trust||0)>=5)effects.push("他對你的戒心稍微放下");
+ if((delta.anger||0)>=7)effects.push("他的火氣明顯被你往上推");
+ if((delta.suspicion||0)>=5)effects.push("他開始懷疑事情背後還有別的意思");
+ if((delta.mood||0)>=4)effects.push("他的心情意外好了一點");
+ if((delta.stress||0)<=-3)effects.push("至少壓力沒有繼續往上堆");
+ if(!effects.length)effects.push("事情沒有立刻失控，但也沒有真的結束");
+ return `你選擇「${choice.text}」。${effects.join("，")}。${currentEvent.description.slice(0,46)}${currentEvent.description.length>46?"……":""}`;
+}
+function choose(choice){
  if(busy)return;busy=true;
  [...$("options").children].forEach(x=>x.disabled=true);
- $("result").classList.remove("hidden");$("result").innerHTML="AI 正在推演後續……";
- let data=await aiCall("/api/resolve",{state:statePayload(),event:currentEvent,choice});
- let result=normalizeResult(data?.result)||null;
- if(!result){
-   const d=localDelta(choice);
-   result={summary:`你選擇「${choice.text}」後，大鴿的情緒又往不可預測的方向偏了一點。`,reaction:"算了啦，我真的懶得講。",dialogue:[{name:"大鴿",text:"算了啦，我真的懶得講。"}],delta:d,flags:[]};
- }
- applyDelta(result.delta||{});
- (result.flags||[]).forEach(f=>{if(f&&!S.flags.includes(f))S.flags.push(f)});
- maybeUnblock(result);
+ const d=localDelta(choice);
+ const reaction=reactionFor(d);
+ const summary=summaryFor(choice,d);
+ applyDelta(d);
+ maybeUnblock(choice);
  maybeBlock();
 
  const date=`${S.year} Q${S.quarter}`;
- S.memories.push({date,title:currentEvent.title,summary:result.summary||currentEvent.description,choice:choice.text});
- S.lastCategory=currentEvent.category||"人生";
+ S.memories.push({date,eventId:currentEvent.id,title:currentEvent.title,summary,choice:choice.text,category:currentEvent.category});
+ S.lastCategory=currentEvent.category;
 
- const deltas=Object.entries(result.delta||{}).filter(([k,v])=>typeof v==="number"&&v!==0).map(([k,v])=>`<span class="delta ${v>0?"plus":"minus"}">${({mood:"心情",anger:"怒氣",trust:"信任",suspicion:"懷疑",stress:"壓力",social:"聲望",wealth:"財務",love:"感情",health:"健康",doctorRivalry:"博士競爭"})[k]||k} ${v>0?"+":""}${Math.round(v)}</span>`).join("");
- $("result").innerHTML=`<h3>事情後來變成這樣</h3><div class="eventText">${result.summary||""}</div>${result.reaction?`<div class="chat"><div class="chatLine"><span class="name">大鴿：</span>${result.reaction}</div></div>`:""}<div class="deltaRow">${deltas}</div><button id="nextBtn" class="btn primary" style="margin-top:12px">進入下一季</button>`;
- if(Array.isArray(result.dialogue)&&result.dialogue.length) showDialogue(result.dialogue);
+ const deltas=Object.entries(d).filter(([k,v])=>typeof v==="number"&&v!==0).map(([k,v])=>`<span class="delta ${v>0?"plus":"minus"}">${({mood:"心情",anger:"怒氣",trust:"信任",suspicion:"懷疑",stress:"壓力",social:"聲望",wealth:"財務",love:"感情",health:"健康"})[k]||k} ${v>0?"+":""}${Math.round(v)}</span>`).join("");
+ $("result").classList.remove("hidden");
+ $("result").innerHTML=`<h3>事情後來變成這樣</h3><div class="eventText">${escapeHtml(summary)}</div><div class="chat"><div class="chatLine"><span class="name">大鴿：</span>${escapeHtml(reaction)}</div></div><div class="deltaRow">${deltas}</div><button id="nextBtn" class="btn primary" style="margin-top:12px">進入下一季</button>`;
  render();
  $("nextBtn").onclick=()=>{
-   if(maybeEnd()){finish();return}
-   S.quarter++;if(S.quarter>4){S.quarter=1;S.year++}if(S.quarter===3)S.age++;
-   busy=false;generateEvent();
+  if(maybeEnd()){finish();return}
+  S.quarter++;if(S.quarter>4){S.quarter=1;S.year++}if(S.quarter===3)S.age++;
+  busy=false;generateEvent();
  };
  busy=false;
 }
-async function finish(){
+function finish(){
  $("game").classList.add("hidden");$("ending").classList.remove("hidden");
  const years=(S.year-2019)+(S.quarter-1)/4;
- let bioData=await aiCall("/api/biography",{state:statePayload(),memories:S.memories.slice(-60),forcedEnding:S.forcedEnding});
- const title=bioData?.title || (S.forcedEnding||"大鴿多年好友");
- const rank=bioData?.rank || (S.trust>70?"A":S.trust>45?"B":"C");
- const bio=bioData?.biography || `你陪大鴿走過約 ${years.toFixed(1)} 年。這段人生裡，球賽、博士、群組、封鎖與各種莫名其妙的事件輪流登場。`;
+ let title=S.forcedEnding;
+ if(!title){
+  if(S.trust>=78&&S.blocks<=1)title="大鴿少數真正信任的人";
+  else if(S.blocks>=4)title="封鎖與解封的長期觀察者";
+  else if(S.suspicion>=80)title="被懷疑了一輩子的假好友";
+  else if(S.social>=70)title="群組生態的共同見證人";
+  else title="大鴿多年好友";
+ }
+ let rank=S.trust>=80?"S":S.trust>=68?"A":S.trust>=50?"B":S.trust>=35?"C":"D";
+ const topCats={};S.memories.forEach(m=>topCats[m.category]=(topCats[m.category]||0)+1);
+ const fav=Object.entries(topCats).sort((a,b)=>b[1]-a[1])[0]?.[0]||"生活";
+ const last=S.memories.slice(-5).map(m=>`${m.date} 的「${m.title}」`).join("、");
+ const bio=`你陪大鴿走過約 ${years.toFixed(1)} 年。這一世最常發生的是「${fav}」類事件。期間他曾封鎖你 ${S.blocks} 次，最終信任 ${Math.round(S.trust)}、怒氣 ${Math.round(S.anger)}、懷疑 ${Math.round(S.suspicion)}。${S.ishinEncounters?`伊神總共在 ${S.ishinEncounters} 個季度直接出現，通常一出場就讓氣氛升溫。`:""}後期幾個重要片段包括 ${last||"一些平凡但難忘的小事"}。整體來看，你不是把他的人生變得完全順利的人，而是那個長期在旁邊影響他判斷、情緒與社群關係的人。`;
  $("rank").textContent=rank;$("endingTitle").textContent=title;$("endingSummary").textContent=`陪伴約 ${years.toFixed(1)} 年｜被封鎖 ${S.blocks} 次｜最終信任 ${Math.round(S.trust)}`;$("biography").textContent=bio;
 }
 $("startBtn").onclick=()=>{
- const name=$("playerName").value.trim()||"Lv.0 摯友",seed=$("seed").value.trim()||"AI-DAGE";
+ const name=$("playerName").value.trim()||"Lv.0 摯友",seed=$("seed").value.trim()||"OFFLINE-DAGE";
  rng=mulberry32(hashString(name+"|"+seed+"|"+chosenType));
  S={name,seed,type:chosenType,year:2019,quarter:1,age:27,mood:58,anger:42,trust:52,suspicion:18,stress:32,social:50,wealth:50,love:20,health:82,blocks:0,blocked:false,flags:[],memories:[],lastCategory:null,forcedEnding:null,legendary:"無",ishinEncounters:0,deathAge:Math.floor(70+rng()*16)};
  if(chosenType==="貼心型")S.trust+=8;if(chosenType==="拱火型")S.anger+=8;if(chosenType==="情報型")S.suspicion=Math.max(0,S.suspicion-3);if(chosenType==="雙面型"){S.trust+=3;S.suspicion+=3}
- $("setup").classList.add("hidden");$("game").classList.remove("hidden");render();generateEvent();
+ $("setup").classList.add("hidden");$("game").classList.remove("hidden");
+ $("aiBadge").textContent="OFFLINE ENGINE";$("aiBadge").classList.remove("off");
+ render();generateEvent();
 };
 $("retireBtn").onclick=finish;
 </script>
+
 </body>
 </html>
