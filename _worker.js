@@ -5,7 +5,7 @@ export default {
 
   // Browser-friendly diagnostics.
   if(url.pathname==="/api/health" && request.method==="GET"){
-    return json({ok:true,ai:!!env.AI,service:"dage-ai"});
+    return json({ok:true,ai:!!env.AI,service:"dage-ai",version:"2.5-schema"});
   }
 
   if(url.pathname==="/api/ai-test" && request.method==="GET"){
@@ -35,27 +35,129 @@ export default {
  }
 };
 function json(x,status=200){return new Response(JSON.stringify(x),{status,headers:{"content-type":"application/json;charset=UTF-8","cache-control":"no-store"}})}
-async function runJSON(env,prompt){
- const ans=await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fast",{
+async function runJSON(env,prompt,schema,label="payload"){
+ const base={
    prompt,
    max_tokens:1100,
-   temperature:1.0,
-   top_p:0.92,
-   frequency_penalty:0.45,
-   presence_penalty:0.35,
-   repetition_penalty:1.08,
+   temperature:.72,
+   top_p:.9,
+   frequency_penalty:.35,
+   presence_penalty:.25,
+   repetition_penalty:1.06,
    seed:Math.floor(Math.random()*9999999998)+1,
-   response_format:{type:"json_object"}
- });
- const raw=ans?.response||ans?.result?.response||ans?.choices?.[0]?.message?.content||ans;
- if(raw&&typeof raw==="object"&&!Array.isArray(raw))return raw;
- let s=String(raw||"").trim().replace(/```json|```/gi,"").trim();
- if(!s)throw new Error("empty AI response");
- try{return JSON.parse(s)}catch(_e){}
- const a=s.indexOf("{"),b=s.lastIndexOf("}");
- if(a>=0&&b>a){try{return JSON.parse(s.slice(a,b+1))}catch(_e){}}
- throw new Error("invalid JSON from model");
+   response_format:{type:"json_schema",json_schema:schema}
+ };
+ let lastError=null;
+ for(let attempt=0;attempt<2;attempt++){
+  try{
+   const req={...base};
+   if(attempt===1){
+    req.temperature=.35;
+    req.top_p=.8;
+    req.seed=Math.floor(Math.random()*9999999998)+1;
+    req.prompt=prompt+`\n\n重要：這是第2次格式修正。只輸出完全符合 JSON Schema 的物件，不要 Markdown、不要前後說明、不要程式碼圍欄。`;
+   }
+   const ans=await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fast",req);
+   const raw=ans?.response??ans?.result?.response??ans?.choices?.[0]?.message?.content??ans;
+   if(raw&&typeof raw==="object"&&!Array.isArray(raw))return raw;
+   let s=String(raw||"").trim().replace(/```json|```/gi,"").trim();
+   if(!s)throw new Error(`empty AI response (${label})`);
+   try{return JSON.parse(s)}catch(_e){}
+   const a=s.indexOf("{"),b=s.lastIndexOf("}");
+   if(a>=0&&b>a){try{return JSON.parse(s.slice(a,b+1))}catch(_e){}}
+   throw new Error(`invalid JSON from model (${label}): ${s.slice(0,180)}`);
+  }catch(e){
+   lastError=e;
+  }
+ }
+ throw new Error(`AI structured output failed (${label}): ${String(lastError?.message||lastError)}`);
 }
+
+const DIALOGUE_ITEM_SCHEMA={
+ type:"object",
+ properties:{
+  name:{type:"string"},
+  text:{type:"string"}
+ },
+ required:["name","text"],
+ additionalProperties:false
+};
+
+const EVENT_SCHEMA={
+ type:"object",
+ properties:{
+  event:{
+   type:"object",
+   properties:{
+    category:{type:"string"},
+    title:{type:"string"},
+    description:{type:"string"},
+    legendary:{type:"string"},
+    dialogue:{type:"array",items:DIALOGUE_ITEM_SCHEMA},
+    choices:{
+     type:"array",
+     items:{
+      type:"object",
+      properties:{id:{type:"string"},text:{type:"string"}},
+      required:["id","text"],
+      additionalProperties:false
+     }
+    }
+   },
+   required:["category","title","description","legendary","dialogue","choices"],
+   additionalProperties:false
+  }
+ },
+ required:["event"],
+ additionalProperties:false
+};
+
+const RESULT_SCHEMA={
+ type:"object",
+ properties:{
+  result:{
+   type:"object",
+   properties:{
+    summary:{type:"string"},
+    reaction:{type:"string"},
+    dialogue:{type:"array",items:DIALOGUE_ITEM_SCHEMA},
+    delta:{
+     type:"object",
+     properties:{
+      mood:{type:"number"},
+      anger:{type:"number"},
+      trust:{type:"number"},
+      suspicion:{type:"number"},
+      stress:{type:"number"},
+      social:{type:"number"},
+      wealth:{type:"number"},
+      love:{type:"number"},
+      health:{type:"number"}
+     },
+     additionalProperties:false
+    },
+    flags:{type:"array",items:{type:"string"}},
+    unblock:{type:"boolean"}
+   },
+   required:["summary","reaction","dialogue","delta","flags","unblock"],
+   additionalProperties:false
+  }
+ },
+ required:["result"],
+ additionalProperties:false
+};
+
+const BIOGRAPHY_SCHEMA={
+ type:"object",
+ properties:{
+  title:{type:"string"},
+  rank:{type:"string"},
+  biography:{type:"string"}
+ },
+ required:["title","rank","biography"],
+ additionalProperties:false
+};
+
 const PERSONA=`你是繁體中文人生模擬遊戲的即時編劇。你不是客服，也不是一般聊天機器人；你要把 NPC「大鴿」當成一個有持續人格、記憶、偏見、情緒慣性與社群關係的人。
 
 【大鴿人格核心】
@@ -134,7 +236,7 @@ function sanitizeResultPayload(obj){
  for(const [k,v] of Object.entries(r.delta||{}))if(typeof v==="number"&&Number.isFinite(v))delta[k]=v;
  return {result:{
   summary:String(r.summary||r.story||r.outcome||r.description||"事情往意料之外的方向發展。"),
-  reaction:String(r.reaction||r.reply||r.dageReply||r.response||"算了啦，我真的懶得講。"),
+  reaction:String(r.reaction||r.reply||r.dageReply||r.response||"（AI 回覆缺少 reaction 欄位）"),
   dialogue:sanitizeDialogue(r.dialogue||r.messages||r.chat||[]),
   delta,
   flags:Array.isArray(r.flags)?r.flags.slice(0,3).map(String):[],
@@ -159,7 +261,7 @@ ${s}
 只輸出合法 JSON，不要 Markdown，不要說明文字。dialogue 每項固定使用 {"name":"人物","text":"訊息"}；choices 每項固定使用 {"id":"a","text":"選項"}。格式：
 {"event":{"category":"類別","title":"事件標題","description":"80~180字自然敘述","legendary":"伊神/博士/盤咕/汪達/西雅兔哥/柳丁哥/醬財/養肌/莫提斯/無 其中一個","dialogue":[{"name":"人物","text":"訊息"}],"choices":[{"id":"a","text":"選項1"},{"id":"b","text":"選項2"},{"id":"c","text":"選項3"}]}}
 dialogue 0~6 則，choices 必須正好3個。伊神若為 legendary，dialogue 必須包含伊神。`;
- return sanitizeEventPayload(await runJSON(env,prompt));
+ return sanitizeEventPayload(await runJSON(env,prompt,EVENT_SCHEMA,"event"));
 }
 
 async function resolveEvent(env,b){
@@ -178,7 +280,7 @@ ${JSON.stringify(b.choice||{})}
 只輸出合法 JSON，不要 Markdown，不要說明文字。dialogue 每項固定使用 {"name":"人物","text":"訊息"}。JSON：
 {"result":{"summary":"120~260字，直接描述事情後來怎麼發展，略帶嘲諷，不要寫『你的介入』","reaction":"大鴿1~4句社群式反應","dialogue":[{"name":"人物","text":"訊息"}],"delta":{"mood":0,"anger":0,"trust":0,"suspicion":0,"stress":0,"social":0,"wealth":0,"love":0,"health":0},"flags":["最多3個新記憶標籤"],"unblock":false}}
 不相關的 delta 欄位可省略。`;
- return sanitizeResultPayload(await runJSON(env,prompt));
+ return sanitizeResultPayload(await runJSON(env,prompt,RESULT_SCHEMA,"resolve"));
 }
 
 async function genBiography(env,b){
@@ -193,5 +295,5 @@ ${b.forcedEnding||"無"}
 
 輸出 JSON：
 {"title":"具特色的結局稱號","rank":"SSS/SS/S/A/B/C/D/F 其中一個","biography":"700~1400字繁體中文傳記。要真的整理大鴿的人生，不是只評玩家；分青年、中年、晚年或重要階段敘述，穿插伊神、博士與其他傳奇人物，以及工作、感情、金錢、棒球、封鎖與重大轉折。若伊神在此局頻繁出現，要讓他成為傳記中的重要亂源或宿敵型配角；博士則只是一般傳奇人物之一。語氣像荒謬人物傳記，略帶嘲諷但不要只是羞辱。最後再用一小段揭露玩家究竟扮演了什麼角色。"}`
- return await runJSON(env,prompt);
+ return await runJSON(env,prompt,BIOGRAPHY_SCHEMA,"biography");
 }
