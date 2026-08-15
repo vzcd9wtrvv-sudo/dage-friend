@@ -5,25 +5,25 @@ export default {
 
   // Browser-friendly diagnostics.
   if(url.pathname==="/api/health" && request.method==="GET"){
-    return json({ok:true,ai:!!env.AI,service:"dage-ai",version:"2.5-schema"});
+    return json({ok:true,ai:!!env.AI,service:"dage-ai",version:"2.6-70b"});
   }
 
   if(url.pathname==="/api/ai-test" && request.method==="GET"){
     if(!env.AI)return json({ok:false,ai:false,error:"AI binding missing"},503);
     try{
-      const ans=await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fast",{
-        prompt:"只回覆 AI_OK",
-        max_tokens:16,
-        temperature:0
+      const ans=await env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast",{
+        messages:[
+          {role:"system",content:"你是 API 健康檢查器。只回答 AI_OK，不要 Markdown，不要程式碼，不要其他文字。"},
+          {role:"user",content:"回覆 AI_OK"}
+        ],
+        max_tokens:8,temperature:0
       });
-      const raw=ans?.response||ans?.result?.response||ans?.choices?.[0]?.message?.content||ans;
-      return json({ok:true,ai:true,raw});
-    }catch(e){
-      return json({ok:false,ai:true,error:String(e?.message||e)},500);
-    }
-  }
+      const raw=ans?.response??ans?.result?.response??ans?.choices?.[0]?.message?.content??ans;
+      return json({ok:true,ai:true,model:"llama-3.3-70b-instruct-fp8-fast",raw});
+    }catch(e){return json({ok:false,ai:true,error:String(e?.message||e)},500)}
+   }
 
-  if(request.method!=="POST")return json({error:"method"},405);
+   if(request.method!=="POST")return json({error:"method"},405);
   if(!env.AI)return json({error:"AI binding missing"},503);
   try{
    const body=await request.json();
@@ -35,42 +35,40 @@ export default {
  }
 };
 function json(x,status=200){return new Response(JSON.stringify(x),{status,headers:{"content-type":"application/json;charset=UTF-8","cache-control":"no-store"}})}
-async function runJSON(env,prompt,schema,label="payload"){
- const base={
-   prompt,
-   max_tokens:1100,
-   temperature:.72,
-   top_p:.9,
-   frequency_penalty:.35,
-   presence_penalty:.25,
-   repetition_penalty:1.06,
-   seed:Math.floor(Math.random()*9999999998)+1,
-   response_format:{type:"json_schema",json_schema:schema}
- };
+async function runJSON(env,userPrompt,schema,label="payload",validate=null){
+ const model="@cf/meta/llama-3.3-70b-instruct-fp8-fast";
  let lastError=null;
- for(let attempt=0;attempt<2;attempt++){
+ for(let attempt=0;attempt<3;attempt++){
   try{
-   const req={...base};
-   if(attempt===1){
-    req.temperature=.35;
-    req.top_p=.8;
-    req.seed=Math.floor(Math.random()*9999999998)+1;
-    req.prompt=prompt+`\n\n重要：這是第2次格式修正。只輸出完全符合 JSON Schema 的物件，不要 Markdown、不要前後說明、不要程式碼圍欄。`;
-   }
-   const ans=await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fast",req);
+   const correction=attempt===0?"":"\\n\\n前一次輸出未通過程式驗證。這次必須完整填滿所有 required 欄位，內容必須是自然繁體中文，不可輸出亂碼、單獨符號、Markdown 或額外說明。";
+   const ans=await env.AI.run(model,{
+    messages:[
+     {role:"system",content:PERSONA+"\\n\\n你是在遊戲後端產生結構化資料。嚴格遵守 JSON Schema；所有人物對話與敘述必須是完整、自然、可讀的繁體中文。"},
+     {role:"user",content:userPrompt+correction}
+    ],
+    max_tokens:label==="biography"?1900:1200,
+    temperature:attempt===0?.72:.38,
+    top_p:attempt===0?.9:.82,
+    repetition_penalty:1.05,
+    seed:Math.floor(Math.random()*9999999998)+1,
+    response_format:{type:"json_schema",json_schema:schema}
+   });
    const raw=ans?.response??ans?.result?.response??ans?.choices?.[0]?.message?.content??ans;
-   if(raw&&typeof raw==="object"&&!Array.isArray(raw))return raw;
-   let s=String(raw||"").trim().replace(/```json|```/gi,"").trim();
-   if(!s)throw new Error(`empty AI response (${label})`);
-   try{return JSON.parse(s)}catch(_e){}
-   const a=s.indexOf("{"),b=s.lastIndexOf("}");
-   if(a>=0&&b>a){try{return JSON.parse(s.slice(a,b+1))}catch(_e){}}
-   throw new Error(`invalid JSON from model (${label}): ${s.slice(0,180)}`);
-  }catch(e){
-   lastError=e;
-  }
+   let obj=raw;
+   if(typeof raw==="string"){
+    let s=raw.trim().replace(/```json|```/gi,"").trim();
+    try{obj=JSON.parse(s)}catch(_e){
+     const a=s.indexOf("{"),b=s.lastIndexOf("}");
+     if(a>=0&&b>a)obj=JSON.parse(s.slice(a,b+1));
+     else throw new Error(`invalid JSON (${label})`);
+    }
+   }
+   if(!obj||typeof obj!=="object"||Array.isArray(obj))throw new Error(`invalid object (${label})`);
+   if(validate)validate(obj);
+   return obj;
+  }catch(e){lastError=e}
  }
- throw new Error(`AI structured output failed (${label}): ${String(lastError?.message||lastError)}`);
+ throw new Error(`AI generation failed (${label}) after 3 attempts: ${String(lastError?.message||lastError)}`);
 }
 
 const DIALOGUE_ITEM_SCHEMA={
@@ -244,11 +242,31 @@ function sanitizeResultPayload(obj){
  }};
 }
 
+function goodText(v,min=2){
+ return typeof v==="string" && v.trim().length>=min &&
+        /[\\u3400-\\u9fffA-Za-z0-9]/.test(v) &&
+        !/^[\\s%()（）:：,，.。!！?？'"`~\\-_=+*/\\\\]+$/.test(v.trim());
+}
+function validateEventObject(obj){
+ const e=obj?.event;
+ if(!e||!goodText(e.title,4)||!goodText(e.description,20))throw new Error("bad event text");
+ if(!Array.isArray(e.choices)||e.choices.length!==3||e.choices.some(x=>!goodText(x?.text,2)))throw new Error("bad choices");
+ if(!Array.isArray(e.dialogue)||e.dialogue.some(x=>!goodText(x?.name,1)||!goodText(x?.text,2)))throw new Error("bad dialogue");
+}
+function validateResultObject(obj){
+ const r=obj?.result;
+ if(!r||!goodText(r.summary,20)||!goodText(r.reaction,2))throw new Error("bad result text");
+ if(!Array.isArray(r.dialogue)||r.dialogue.some(x=>!goodText(x?.name,1)||!goodText(x?.text,2)))throw new Error("bad result dialogue");
+ if(!r.delta||typeof r.delta!=="object"||Array.isArray(r.delta)||!Array.isArray(r.flags)||typeof r.unblock!=="boolean")throw new Error("result fields missing");
+}
+function validateBiographyObject(obj){
+ if(!goodText(obj?.title,2)||!goodText(obj?.rank,1)||!goodText(obj?.biography,250))throw new Error("bad biography");
+}
+
 async function genEvent(env,b){
  const s=JSON.stringify(b.state||{});
  const mode=b.mode==="blocked"?"玩家目前被大鴿封鎖，事件必須圍繞解封、共同好友傳話、等待、博士介入等，但仍只給三個選項。":"正常季度。";
- const prompt=`${PERSONA}
-${mode}
+ const prompt=`${mode}
 目前完整遊戲狀態：
 ${s}
 請生成下一季事件。
@@ -261,12 +279,11 @@ ${s}
 只輸出合法 JSON，不要 Markdown，不要說明文字。dialogue 每項固定使用 {"name":"人物","text":"訊息"}；choices 每項固定使用 {"id":"a","text":"選項"}。格式：
 {"event":{"category":"類別","title":"事件標題","description":"80~180字自然敘述","legendary":"伊神/博士/盤咕/汪達/西雅兔哥/柳丁哥/醬財/養肌/莫提斯/無 其中一個","dialogue":[{"name":"人物","text":"訊息"}],"choices":[{"id":"a","text":"選項1"},{"id":"b","text":"選項2"},{"id":"c","text":"選項3"}]}}
 dialogue 0~6 則，choices 必須正好3個。伊神若為 legendary，dialogue 必須包含伊神。`;
- return sanitizeEventPayload(await runJSON(env,prompt,EVENT_SCHEMA,"event"));
+ return sanitizeEventPayload(await runJSON(env,prompt,EVENT_SCHEMA,"event",validateEventObject));
 }
 
 async function resolveEvent(env,b){
- const prompt=`${PERSONA}
-現在要處理玩家剛剛做的選擇。
+ const prompt=`現在要處理玩家剛剛做的選擇。
 狀態：
 ${JSON.stringify(b.state||{})}
 事件：
@@ -280,12 +297,11 @@ ${JSON.stringify(b.choice||{})}
 只輸出合法 JSON，不要 Markdown，不要說明文字。dialogue 每項固定使用 {"name":"人物","text":"訊息"}。JSON：
 {"result":{"summary":"120~260字，直接描述事情後來怎麼發展，略帶嘲諷，不要寫『你的介入』","reaction":"大鴿1~4句社群式反應","dialogue":[{"name":"人物","text":"訊息"}],"delta":{"mood":0,"anger":0,"trust":0,"suspicion":0,"stress":0,"social":0,"wealth":0,"love":0,"health":0},"flags":["最多3個新記憶標籤"],"unblock":false}}
 不相關的 delta 欄位可省略。`;
- return sanitizeResultPayload(await runJSON(env,prompt,RESULT_SCHEMA,"resolve"));
+ return sanitizeResultPayload(await runJSON(env,prompt,RESULT_SCHEMA,"resolve",validateResultObject));
 }
 
 async function genBiography(env,b){
- const prompt=`${PERSONA}
-遊戲已結束。請根據以下狀態與人生記憶，替這一世的大鴿生成結局。
+ const prompt=`遊戲已結束。請根據以下狀態與人生記憶，替這一世的大鴿生成結局。
 狀態：
 ${JSON.stringify(b.state||{})}
 重要記憶：
@@ -295,5 +311,5 @@ ${b.forcedEnding||"無"}
 
 輸出 JSON：
 {"title":"具特色的結局稱號","rank":"SSS/SS/S/A/B/C/D/F 其中一個","biography":"700~1400字繁體中文傳記。要真的整理大鴿的人生，不是只評玩家；分青年、中年、晚年或重要階段敘述，穿插伊神、博士與其他傳奇人物，以及工作、感情、金錢、棒球、封鎖與重大轉折。若伊神在此局頻繁出現，要讓他成為傳記中的重要亂源或宿敵型配角；博士則只是一般傳奇人物之一。語氣像荒謬人物傳記，略帶嘲諷但不要只是羞辱。最後再用一小段揭露玩家究竟扮演了什麼角色。"}`
- return await runJSON(env,prompt,BIOGRAPHY_SCHEMA,"biography");
+ return await runJSON(env,prompt,BIOGRAPHY_SCHEMA,"biography",validateBiographyObject);
 }
